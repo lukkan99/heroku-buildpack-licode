@@ -1,0 +1,209 @@
+#!/usr/bin/env bash
+# bin/compile <build-dir> <cache-dir>
+
+# fail fast
+set -e
+
+# debug
+# set -x
+
+#Load config vars into environment (from https://devcenter.heroku.com/articles/buildpack-api)
+export_env_dir() {
+    env_dir=$1
+    whitelist_regex=${2:-''}
+    blacklist_regex=${3:-'^(PATH|GIT_DIR|CPATH|CPPATH|LD_PRELOAD|LIBRARY_PATH)$'}
+    if [ -d "$env_dir" ]; then
+	for e in $(ls $env_dir); do
+	    echo "$e" | grep -E "$whitelist_regex" | grep -qvE "$blacklist_regex" &&
+		export "$e=$(cat $env_dir/$e)"
+	    :
+	done
+    fi
+}
+
+export_env_dir $3
+
+# parse and derive params
+BUILD_DIR=$1
+CACHE_DIR=$2
+LP_DIR=`cd $(dirname $0); cd ..; pwd`
+
+ROOT=$BUILD_DIR
+BUILD_DIR=$ROOT/build
+CURRENT_DIR=$BUILD_DIR
+
+LIB_DIR=$BUILD_DIR/libdeps
+PREFIX_DIR=$LIB_DIR/build/
+
+function error() {
+  echo " !     $*" >&2
+  exit 1
+}
+
+function topic() {
+  echo "-----> $*"
+}
+
+function indent() {
+  c='s/^/       /'
+  case $(uname) in
+    Darwin) sed -l "$c";;
+    *)      sed -u "$c";;
+  esac
+}
+
+install_openssl(){
+  if [ -d $LIB_DIR ]; then
+    cd $LIB_DIR
+    curl -O http://www.openssl.org/source/openssl-1.0.1g.tar.gz
+    tar -zxvf openssl-1.0.1g.tar.gz
+    cd openssl-1.0.1g
+    ./config --prefix=$PREFIX_DIR -fPIC
+    make -s V=0
+    make install
+    cd $CURRENT_DIR
+  else
+    mkdir -p $LIB_DIR
+    install_openssl
+  fi
+}
+
+install_libnice(){
+  if [ -d $LIB_DIR ]; then
+    cd $LIB_DIR
+    curl -O http://nice.freedesktop.org/releases/libnice-0.1.4.tar.gz
+    tar -zxvf libnice-0.1.4.tar.gz
+    cd libnice-0.1.4
+    patch -R ./agent/conncheck.c < $PATHNAME/libnice-014.patch0
+    ./configure --prefix=$PREFIX_DIR
+    make -s V=0
+    make install
+    cd $CURRENT_DIR
+  else
+    mkdir -p $LIB_DIR
+    install_libnice
+  fi
+}
+
+install_opus(){
+  [ -d $LIB_DIR ] || mkdir -p $LIB_DIR
+  cd $LIB_DIR
+  curl -O http://downloads.xiph.org/releases/opus/opus-1.1.tar.gz
+  tar -zxvf opus-1.1.tar.gz
+  cd opus-1.1
+  ./configure --prefix=$PREFIX_DIR
+  make -s V=0
+  make install
+  cd $CURRENT_DIR
+}
+
+install_mediadeps(){
+  install_opus
+  if [ -d $LIB_DIR ]; then
+    cd $LIB_DIR
+    curl -O https://www.libav.org/releases/libav-11.1.tar.gz
+    tar -zxvf libav-11.1.tar.gz
+    cd libav-11.1
+    PKG_CONFIG_PATH=${PREFIX_DIR}/lib/pkgconfig ./configure --prefix=$PREFIX_DIR --enable-shared --enable-gpl --enable-libvpx --enable-libx264 --enable-libopus
+    make -s V=0
+    make install
+    cd $CURRENT_DIR
+  else
+    mkdir -p $LIB_DIR
+    install_mediadeps
+  fi
+
+}
+
+install_libsrtp(){
+  cd $ROOT/third_party/srtp
+  CFLAGS="-fPIC" ./configure --prefix=$PREFIX_DIR
+  make -s V=0
+  make uninstall
+  make install
+  cd $CURRENT_DIR
+}
+
+cleanup(){  
+  if [ -d $LIB_DIR ]; then
+    cd $LIB_DIR
+    rm -r libnice*
+    rm -r libav*
+    rm -r openssl*
+    cd $CURRENT_DIR
+  fi
+}
+
+parse_arguments $*
+
+mkdir -p $PREFIX_DIR
+
+install_openssl
+install_libnice
+install_libsrtp
+install_opus
+install_mediadeps
+
+if [ "$CLEANUP" = "true" ]; then
+  echo "Cleaning up..."
+  cleanup
+fi
+
+# Get the path to dir one above this file.
+BUILDPACK_DIR=$(cd -P -- "$(dirname -- "$0")" && cd .. && pwd -P)
+# Get the directory our app is checked out in (the "BUILD_DIR"), passed by Heroku
+APP_CHECKOUT_DIR=$1
+
+#
+# Config the app!
+#
+topic "Selecting Licode node type"
+cd $APP_CHECKOUT_DIR
+
+if [ -n "${LICODE_NODE_TYPE+1}" ]; then
+    
+    case "$LICODE_NODE_TYPE" in
+	
+	nuve)
+	    topic "Deploying Nuve"
+	    cp Procfile_nuve Procfile
+	    cp licode_config_nuve.js licode_config.js
+	    ;;
+	controller)
+	    topic "Deploying contorller"
+	    cp Procfile_controller Procfile
+	    cp licode_config_controller.js licode_config.js
+	    ;;
+	agent)
+	    topic "Deploying agent"
+	    cp Procfile_agent Procfile
+	    cp licode_config_agent.js licode_config.js
+	    ;;
+	*)
+	    error "incorrect value of the LICODE_NODE_TYPE variable"
+	    ;;
+    esac
+fi
+
+# topic "Writing profile script"
+# mkdir -p $BUILD_DIR/.profile.d
+# cat <<EOF >$BUILD_DIR/.profile.d/000_apt.sh
+# export PATH="\$HOME/.apt/usr/bin:\$PATH"
+# export LD_LIBRARY_PATH="\$HOME/.apt/usr/lib/x86_64-linux-gnu:\$HOME/.apt/usr/lib/i386-linux-gnu:\$HOME/.apt/usr/lib:\$LD_LIBRARY_PATH"
+# export LIBRARY_PATH="\$HOME/.apt/usr/lib/x86_64-linux-gnu:\$HOME/.apt/usr/lib/i386-linux-gnu:\$HOME/.apt/usr/lib:\$LIBRARY_PATH"
+# export INCLUDE_PATH="\$HOME/.apt/usr/include:\$INCLUDE_PATH"
+# export CPATH="\$INCLUDE_PATH"
+# export CPPPATH="\$INCLUDE_PATH"
+# export PKG_CONFIG_PATH="\$HOME/.apt/usr/lib/x86_64-linux-gnu/pkgconfig:\$HOME/.apt/usr/lib/i386-linux-gnu/pkgconfig:\$HOME/.apt/usr/lib/pkgconfig:\$PKG_CONFIG_PATH"
+# EOF
+
+# export PATH="$BUILD_DIR/.apt/usr/bin:$PATH"
+# export LD_LIBRARY_PATH="$BUILD_DIR/.apt/usr/lib/x86_64-linux-gnu:$BUILD_DIR/.apt/usr/lib/i386-linux-gnu:$BUILD_DIR/.apt/usr/lib:$LD_LIBRARY_PATH"
+# export LIBRARY_PATH="$BUILD_DIR/.apt/usr/lib/x86_64-linux-gnu:$BUILD_DIR/.apt/usr/lib/i386-linux-gnu:$BUILD_DIR/.apt/usr/lib:$LIBRARY_PATH"
+# export INCLUDE_PATH="$BUILD_DIR/.apt/usr/include:$INCLUDE_PATH"
+# export CPATH="$INCLUDE_PATH"
+# export CPPPATH="$INCLUDE_PATH"
+# export PKG_CONFIG_PATH="$BUILD_DIR/.apt/usr/lib/x86_64-linux-gnu/pkgconfig:$BUILD_DIR/.apt/usr/lib/i386-linux-gnu/pkgconfig:$BUILD_DIR/.apt/usr/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+# #give environment to later buildpacks
+# export | grep -E -e ' (PATH|LD_LIBRARY_PATH|LIBRARY_PATH|INCLUDE_PATH|CPATH|CPPPATH|PKG_CONFIG_PATH)='  > "$LP_DIR/export"
