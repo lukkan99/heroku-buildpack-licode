@@ -35,6 +35,8 @@ CURRENT_DIR=$BUILD_DIR
 LIB_DIR=$BUILD_DIR/libdeps
 PREFIX_DIR=$LIB_DIR/build/
 
+mkdir -p $PREFIX_DIR
+
 function error() {
   echo " !     $*" >&2
   exit 1
@@ -133,10 +135,6 @@ cleanup(){
     cd $CURRENT_DIR
   fi
 }
-
-parse_arguments $*
-
-mkdir -p $PREFIX_DIR
 
 install_openssl
 install_libnice
