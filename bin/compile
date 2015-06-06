@@ -83,7 +83,7 @@ install_libnice(){
     ./configure --prefix=$PREFIX_DIR
     export CFLAGS="$CFLAGS -fPIC"
     export CXXFLAGS="$CXXFLAGS -fPIC"
-    make -s V=0
+    make -s V=0 CFLAGS="$CFLAGS -fPIC"
     make install
     cd $CURRENT_DIR
   else
