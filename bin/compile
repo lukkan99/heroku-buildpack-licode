@@ -80,10 +80,8 @@ install_libnice(){
     cd libnice-0.1.4
     ls -la $APP_CHECKOUT_DIR
     patch -R ./agent/conncheck.c < $APP_CHECKOUT_DIR/scripts/libnice-014.patch0
-    ./configure --prefix=$PREFIX_DIR
-    export CFLAGS="$CFLAGS -fPIC"
-    export CXXFLAGS="$CXXFLAGS -fPIC"
-    make -s V=0 CFLAGS="$CFLAGS -fPIC"
+    ./configure --enable-shared --prefix=$PREFIX_DIR
+    make -s V=0
     make install
     cd $CURRENT_DIR
   else
