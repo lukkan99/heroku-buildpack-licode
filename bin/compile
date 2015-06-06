@@ -27,6 +27,8 @@ export_env_dir $3
 BUILD_DIR=$1
 CACHE_DIR=$2
 LP_DIR=`cd $(dirname $0); cd ..; pwd`
+# Get the directory our app is checked out in (the "BUILD_DIR"), passed by Heroku
+APP_CHECKOUT_DIR=$1
 
 ROOT=$BUILD_DIR
 BUILD_DIR=$ROOT/build
@@ -76,8 +78,8 @@ install_libnice(){
     curl -O http://nice.freedesktop.org/releases/libnice-0.1.4.tar.gz
     tar -zxvf libnice-0.1.4.tar.gz
     cd libnice-0.1.4
-    ls -la $CURRENT_DIR
-    patch -R ./agent/conncheck.c < $CURRENT_DIR/scripts/libnice-014.patch0
+    ls -la $APP_CHECKOUT_DIR
+    patch -R ./agent/conncheck.c < $APP_CHECKOUT_DIR/scripts/libnice-014.patch0
     ./configure --prefix=$PREFIX_DIR
     make -s V=0
     make install
@@ -150,8 +152,6 @@ fi
 
 # Get the path to dir one above this file.
 BUILDPACK_DIR=$(cd -P -- "$(dirname -- "$0")" && cd .. && pwd -P)
-# Get the directory our app is checked out in (the "BUILD_DIR"), passed by Heroku
-APP_CHECKOUT_DIR=$1
 
 #
 # Config the app!
