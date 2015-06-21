@@ -21,7 +21,6 @@ export_env_dir() {
     fi
 }
 
-cat $3/LICODE_NODE_TYPE
 export_env_dir $3
 
 # parse and derive params
@@ -161,23 +160,23 @@ topic "Selecting Licode node type"
 cd $APP_CHECKOUT_DIR
 
 if [ -n "${LICODE_NODE_TYPE+1}" ]; then
-    topic "in the if branch"    
+
     case "$LICODE_NODE_TYPE" in
 	
 	nuve)
 	    topic "Deploying Nuve"
 	    cp Procfile_nuve Procfile
-	    cp licode_config_nuve.js licode_config.js
+	    cp licode_config-nuve.js licode_config.js
 	    ;;
 	controller)
 	    topic "Deploying contorller"
 	    cp Procfile_controller Procfile
-	    cp licode_config_controller.js licode_config.js
+	    cp licode_config-controller.js licode_config.js
 	    ;;
 	agent)
 	    topic "Deploying agent"
 	    cp Procfile_agent Procfile
-	    cp licode_config_agent.js licode_config.js
+	    cp licode_config-agent.js licode_config.js
 	    ;;
 	*)
 	    error "incorrect value of the LICODE_NODE_TYPE variable"
