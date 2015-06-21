@@ -158,6 +158,7 @@ BUILDPACK_DIR=$(cd -P -- "$(dirname -- "$0")" && cd .. && pwd -P)
 #
 topic "Selecting Licode node type"
 cd $APP_CHECKOUT_DIR
+topic $LICODE_NODE_TYPE
 
 if [ -n "${LICODE_NODE_TYPE+1}" ]; then
     
@@ -186,9 +187,6 @@ fi
 
 topic "profile.d"
 cat $APP_CHECKOUT_DIR/.profile.d/000_apt.sh
-
-topic  "npm list"
-npm list
 
 # topic "Writing profile script"
 # mkdir -p $BUILD_DIR/.profile.d
