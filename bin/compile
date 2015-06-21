@@ -158,10 +158,9 @@ BUILDPACK_DIR=$(cd -P -- "$(dirname -- "$0")" && cd .. && pwd -P)
 #
 topic "Selecting Licode node type"
 cd $APP_CHECKOUT_DIR
-topic $LICODE_NODE_TYPE
 
 if [ -n "${LICODE_NODE_TYPE+1}" ]; then
-    
+    topic "in the if branch"    
     case "$LICODE_NODE_TYPE" in
 	
 	nuve)
