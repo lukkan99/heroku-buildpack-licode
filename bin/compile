@@ -21,6 +21,7 @@ export_env_dir() {
     fi
 }
 
+ls $3
 export_env_dir $3
 
 # parse and derive params
