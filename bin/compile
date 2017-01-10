@@ -185,7 +185,7 @@ if [ -n "${LICODE_NODE_TYPE+1}" ]; then
 fi
 
 topic "profile.d"
-cat $APP_CHECKOUT_DIR/.profile.d/000_apt.sh
+#cat $APP_CHECKOUT_DIR/.profile.d/000_apt.sh
 
 # topic "Writing profile script"
 # mkdir -p $BUILD_DIR/.profile.d
